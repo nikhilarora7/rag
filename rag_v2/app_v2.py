@@ -1,0 +1,99 @@
+import streamlit as st
+from dotenv import load_dotenv
+import os
+from modules.auth import check_password
+from modules.vectorstore import get_pdf_text, get_text_chunks, get_vector_store, load_vector_store
+from modules.chat import get_conversational_chain
+from modules.db import init_db, save_chat_history, get_chat_history
+
+# Load .env variables from rag_v2/.env
+load_dotenv()
+import asyncio
+
+try:
+    asyncio.get_running_loop()
+except RuntimeError:
+    asyncio.set_event_loop(asyncio.new_event_loop())
+
+def main():
+    st.set_page_config(page_title="Gemini: Chat with PDFs (V2)", page_icon="💁", layout="wide")
+
+    # Authentication
+    if not check_password():
+        st.warning("Please enter the correct password to continue.")
+        return
+
+    st.markdown(
+        """
+        <div style="text-align: center;">
+            <h1 style="color: #4CAF50; font-size: 3rem;">Gemini💁 (V2)</h1>
+            <h2 style="color: #555;">Your personal assistant to chat with PDFs</h2>
+        </div>
+        """, unsafe_allow_html=True
+    )
+
+    # Initialize database (for chat memory)
+    init_db()
+
+    # Sidebar for PDF upload and processing
+    with st.sidebar:
+        st.markdown("<h3 style='color: #4CAF50;'>📂 Upload and Process PDF files</h3>", unsafe_allow_html=True)
+        pdf_docs = st.file_uploader("Upload your PDF files:", accept_multiple_files=True, type=["pdf"])
+
+        if st.button("Submit & Process"):
+            if pdf_docs:
+                with st.spinner("Processing your documents..."):
+                    raw_text = get_pdf_text(pdf_docs)
+                    text_chunks = get_text_chunks(raw_text)
+                    get_vector_store(text_chunks)
+                    st.success("Processing complete! 🎉")
+            else:
+                st.error("Please upload at least one PDF file.")
+
+    # Load vectorstore index for question answering
+    try:
+        vector_store = load_vector_store()
+    except Exception:
+        st.warning("Please upload and process PDFs first.")
+        vector_store = None
+
+    # User question input and chat interaction
+    if vector_store:
+        user_question = st.text_input("Ask a question from your uploaded PDFs:")
+        if user_question:
+            # Get conversational chain/model
+            qa_chain = get_conversational_chain()
+
+            # Perform similarity search on vectorstore
+            docs = vector_store.similarity_search(user_question)
+
+            # Get the response
+            response = qa_chain({"input_documents": docs, "question": user_question}, return_only_outputs=True)
+
+            # Display the answer
+            st.markdown("### Answer:")
+            st.write(response["output_text"])
+
+            # Save to chat history DB
+            save_chat_history(user_question, response["output_text"])
+
+            # Display past chat history (optional)
+            st.markdown("---")
+            st.markdown("### Your Chat History")
+            history = get_chat_history()
+            for entry in history:
+                st.markdown(f"**Q:** {entry['question']}")
+                st.markdown(f"**A:** {entry['answer']} \n---")
+
+    # Footer
+    st.markdown(
+        """
+        <div style="text-align: center; padding-top: 20px;">
+            <hr>
+            <p style="font-size: 0.9rem; color: #999;">Powered by <b>Gemini V2</b> | Developed by Nikhil Arora</p>
+        </div>
+        """, unsafe_allow_html=True
+    )
+
+if __name__ == "__main__":
+    main()
