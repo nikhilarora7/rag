@@ -1,4 +1,4 @@
 **/.env
 faiss_index/
 rag_v2/faiss_index
-requirements.txt
+rag_v1/requirements.txt
