@@ -47,14 +47,23 @@ def main():
                     text_chunks = get_text_chunks(raw_text)
                     get_vector_store(text_chunks)
                     st.success("Processing complete! 🎉")
+                    st.session_state['faiss_ready'] = True
             else:
                 st.error("Please upload at least one PDF file.")
+        
 
     # Load vectorstore index for question answering
-    try:
-        vector_store = load_vector_store()
-    except Exception:
-        st.warning("Please upload and process PDFs first.")
+
+    faiss_index_exists = os.path.exists("faiss_index")  # adjust path as needed
+    is_ready = st.session_state.get('faiss_ready', False)
+
+    if faiss_index_exists and is_ready:
+        try:
+            vector_store = load_vector_store()
+        except Exception:
+            st.warning("Error loading FAISS vector store.")
+            vector_store = None
+    else:
         vector_store = None
 
     # User question input and chat interaction
@@ -84,7 +93,8 @@ def main():
             for entry in history:
                 st.markdown(f"**Q:** {entry['question']}")
                 st.markdown(f"**A:** {entry['answer']} \n---")
-
+    else:
+        st.warning("Please upload and process PDFs first.")
     # Footer
     st.markdown(
         """

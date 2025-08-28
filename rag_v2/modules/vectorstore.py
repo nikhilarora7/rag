@@ -1,7 +1,8 @@
 from PyPDF2 import PdfReader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
-from langchain.vectorstores import FAISS
+from langchain_community.vectorstores import FAISS
+import os
 def get_pdf_text(pdf_docs):
     text=""
     for pdf in pdf_docs:
@@ -18,7 +19,10 @@ def get_text_chunks(text):
 def get_vector_store(text_chunks):
     embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
     vector_store = FAISS.from_texts(text_chunks, embedding=embeddings)
-    vector_store.save_local("f  aiss_index")  # Save the FAISS index locally
+    vector_store.save_local("faiss_index")  # Save the FAISS index locally
 def load_vector_store():
-    vector_store = FAISS.load_local("faiss_index", allow_dangerous_deserialization=True)
-    return vector_store
+    index_path = "faiss_index"
+    if not os.path.exists(index_path):
+        return None
+    embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
+    return FAISS.load_local(index_path, embeddings, allow_dangerous_deserialization=True)

@@ -13,7 +13,7 @@ def get_conversational_chain():
     Answer:
     """
 
-    model = ChatGoogleGenerativeAI(model="models/gemini-1.5-flash", temperature=0.5)
+    model = ChatGoogleGenerativeAI(model="models/gemini-2.5-flash-lite", temperature=0.5)
 
 
     prompt = PromptTemplate(template = prompt_template, input_variables = ["context", "question"])
