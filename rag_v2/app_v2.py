@@ -43,9 +43,9 @@ def main():
         if st.button("Submit & Process"):
             if pdf_docs:
                 with st.spinner("Processing your documents..."):
-                    raw_text = get_pdf_text(pdf_docs)
-                    text_chunks = get_text_chunks(raw_text)
-                    get_vector_store(text_chunks)
+                    page_texts = get_pdf_text(pdf_docs)
+                    chunk_docs = get_text_chunks(page_texts)
+                    get_vector_store(chunk_docs)
                     st.success("Processing complete! 🎉")
                     st.session_state['faiss_ready'] = True
             else:
@@ -83,6 +83,19 @@ def main():
             st.markdown("### Answer:")
             st.write(response["output_text"])
 
+            # --- Display source chunk(s) that contributed to answer ---
+            st.markdown("#### Source Reference")
+
+            for i, doc in enumerate(docs):
+                # Assume doc is a Document with .page_content and .metadata
+                text_preview = doc.page_content[:220] + ("..." if len(doc.page_content) > 220 else "")
+                page_info = doc.metadata.get('page', None)
+                if page_info:
+                    st.markdown(f"<div style='font-size:0.92em; color:gray;'><b>Chunk {i+1} (Page {page_info}):</b> {text_preview}</div>", unsafe_allow_html=True)
+                else:
+                    st.markdown(f"<div style='font-size:0.92em; color:gray;'><b>Chunk {i+1}:</b> {text_preview}</div>", unsafe_allow_html=True)
+
+
             # Save to chat history DB
             save_chat_history(user_question, response["output_text"])
 
@@ -91,8 +104,10 @@ def main():
             st.markdown("### Your Chat History")
             history = get_chat_history()
             for entry in history:
-                st.markdown(f"**Q:** {entry['question']}")
-                st.markdown(f"**A:** {entry['answer']} \n---")
+                st.markdown(
+                    f"<p style='font-size:0.92em;'><b>Q:</b> {entry['question']}<br><b>A:</b> {entry['answer']}</p><hr>", 
+                    unsafe_allow_html=True
+                )
     else:
         st.warning("Please upload and process PDFs first.")
     # Footer
