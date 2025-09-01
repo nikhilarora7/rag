@@ -86,19 +86,27 @@ def main():
             # --- Display source chunk(s) that contributed to answer ---
             st.markdown("#### Source Reference")
 
-            for i, doc in enumerate(docs):
-                # Assume doc is a Document with .page_content and .metadata
-                text_preview = doc.page_content[:220] + ("..." if len(doc.page_content) > 220 else "")
-                page_info = doc.metadata.get('page', None)
-                if page_info:
-                    st.markdown(f"<div style='font-size:0.92em; color:gray;'><b>Chunk {i+1} (Page {page_info}):</b> {text_preview}</div>", unsafe_allow_html=True)
-                else:
-                    st.markdown(f"<div style='font-size:0.92em; color:gray;'><b>Chunk {i+1}:</b> {text_preview}</div>", unsafe_allow_html=True)
+            if docs:
+                # Show only the top chunk for clear citation
+                primary_doc = docs[0]
+                main_preview = primary_doc.page_content[:220] + ("..." if len(primary_doc.page_content) > 220 else "")
+                main_page = primary_doc.metadata.get('page')
+                ref_str = f"<div style='font-size:0.95em; color:gray;'><b>Page {main_page}:</b> {main_preview}</div>" if main_page else f"<div style='font-size:0.95em; color:gray;'><b>Source:</b> {main_preview}</div>"
+                st.markdown(ref_str, unsafe_allow_html=True)
 
-
-            # Save to chat history DB
+                # Optional: show other highly ranked context chunks (if needed)
+                related_chunks_to_show = 1  # Show max 1 related chunk for clarity
+                if len(docs) > 1:
+                    for related_doc in docs[1:1+related_chunks_to_show]:
+                        rel_preview = related_doc.page_content[:120] + ("..." if len(related_doc.page_content) > 120 else "")
+                        rel_page = related_doc.metadata.get('page')
+                        rel_str = f"<span style='font-size:0.88em; color:darkgray;'><i>Related (Page {rel_page}):</i> {rel_preview}</span>" if rel_page else f"<span style='font-size:0.88em; color:darkgray;'><i>Related:</i> {rel_preview}</span>"
+                        st.markdown(rel_str, unsafe_allow_html=True)
+            else:
+                st.warning("No source reference found for this answer.")
+            
+            #save chat
             save_chat_history(user_question, response["output_text"])
-
             # Display past chat history (optional)
             st.markdown("---")
             st.markdown("### Your Chat History")

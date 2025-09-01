@@ -34,4 +34,4 @@ def get_chat_history(limit=20):
         )
         rows = cur.fetchall()
         # Return a list of dicts for convenience
-        return [{"question": row[0], "answer": row} for row in rows]
+        return [{"question": row[0], "answer": row[1]} for row in rows]

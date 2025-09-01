@@ -18,7 +18,7 @@ def get_pdf_text(pdf_docs):
 
 def get_text_chunks(page_texts):
     # page_texts: Output from get_pdf_text(), list of (text, page_num)
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=5000, chunk_overlap=500)
+    text_splitter = RecursiveCharacterTextSplitter(chunk_size=3000, chunk_overlap=400)
     chunk_docs = []
     for text, page_num in page_texts:
         chunks = text_splitter.split_text(text)
