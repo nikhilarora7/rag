@@ -50,7 +50,23 @@ def main():
                     st.session_state['faiss_ready'] = True
             else:
                 st.error("Please upload at least one PDF file.")
-        
+            # Summarization button after processing
+        if st.session_state.get('faiss_ready', False):
+            if st.button("Summarize Uploaded Documents"):
+                with st.spinner("Generating summary..."):
+                    vector_store = load_vector_store()
+                    if vector_store:
+                        docs = vector_store.similarity_search("", k=10)  # empty query to get top chunks
+                        from modules.chat import get_summarization_chain
+                        summarization_chain = get_summarization_chain()
+                        summary_response = summarization_chain(
+                            {"input_documents": docs},
+                            return_only_outputs=True
+                        )
+                        st.session_state['document_summary'] = summary_response["output_text"]
+                        st.success("Summary generated!")
+                    else:
+                        st.error("Vector store not found. Please upload documents first.")
 
     # Load vectorstore index for question answering
 
@@ -116,6 +132,10 @@ def main():
                     f"<p style='font-size:0.92em;'><b>Q:</b> {entry['question']}<br><b>A:</b> {entry['answer']}</p><hr>", 
                     unsafe_allow_html=True
                 )
+        summary_text = st.session_state.get('document_summary', None)
+        if summary_text:
+            st.markdown("### Document Summary")
+            st.write(summary_text)
     else:
         st.warning("Please upload and process PDFs first.")
     # Footer

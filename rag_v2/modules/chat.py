@@ -1,6 +1,9 @@
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.chains.question_answering import load_qa_chain
 from langchain.prompts import PromptTemplate
+from langchain.chains import load_summarize_chain
+from langchain_google_genai import ChatGoogleGenerativeAI
+
 
 def get_conversational_chain():
 
@@ -19,5 +22,10 @@ def get_conversational_chain():
     prompt = PromptTemplate(template = prompt_template, input_variables = ["context", "question"])
     chain = load_qa_chain(model, chain_type="stuff", prompt=prompt)
 
+    return chain
 
+
+def get_summarization_chain():
+    llm = ChatGoogleGenerativeAI(model="models/gemini-1.5-flash", temperature=0)
+    chain = load_summarize_chain(llm, chain_type="map_reduce")
     return chain
