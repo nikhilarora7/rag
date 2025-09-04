@@ -5,7 +5,9 @@ from modules.auth import check_password
 from modules.vectorstore import get_pdf_text, get_text_chunks, get_vector_store, load_vector_store
 from modules.chat import get_conversational_chain
 from modules.db import init_db, save_chat_history, get_chat_history
-
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain.chains import ConversationalRetrievalChain
+from langchain.memory import ConversationBufferMemory
 # Load .env variables from rag_v2/.env
 load_dotenv()
 import asyncio
@@ -32,8 +34,12 @@ def main():
         """, unsafe_allow_html=True
     )
 
-    # Initialize database (for chat memory)
-    init_db()
+    if "memory" not in st.session_state:
+        st.session_state.memory = ConversationBufferMemory(
+            memory_key="chat_history",
+            return_messages=True,
+            output_key="answer"  # Tell memory exactly which output key to store
+        )
 
     # Sidebar for PDF upload and processing
     with st.sidebar:
@@ -51,22 +57,22 @@ def main():
             else:
                 st.error("Please upload at least one PDF file.")
             # Summarization button after processing
-        if st.session_state.get('faiss_ready', False):
-            if st.button("Summarize Uploaded Documents"):
-                with st.spinner("Generating summary..."):
-                    vector_store = load_vector_store()
-                    if vector_store:
-                        docs = vector_store.similarity_search("", k=10)  # empty query to get top chunks
-                        from modules.chat import get_summarization_chain
-                        summarization_chain = get_summarization_chain()
-                        summary_response = summarization_chain(
-                            {"input_documents": docs},
-                            return_only_outputs=True
-                        )
-                        st.session_state['document_summary'] = summary_response["output_text"]
-                        st.success("Summary generated!")
-                    else:
-                        st.error("Vector store not found. Please upload documents first.")
+    if st.session_state.get('faiss_ready', False):
+        if st.button("Summarize Uploaded Documents"):
+            with st.spinner("Generating summary..."):
+                vector_store = load_vector_store()
+                if vector_store:
+                    docs = vector_store.similarity_search("", k=10)  # empty query to get top chunks
+                    from modules.chat import get_summarization_chain
+                    summarization_chain = get_summarization_chain()
+                    summary_response = summarization_chain(
+                        {"input_documents": docs},
+                        return_only_outputs=True
+                    )
+                    st.session_state['document_summary'] = summary_response["output_text"]
+                    st.success("Summary generated!")
+                else:
+                    st.error("Vector store not found. Please upload documents first.")
 
     # Load vectorstore index for question answering
 
@@ -87,17 +93,17 @@ def main():
         user_question = st.text_input("Ask a question from your uploaded PDFs:")
         if user_question:
             # Get conversational chain/model
-            qa_chain = get_conversational_chain()
+            qa_chain = get_conversational_chain(vector_store, st.session_state.memory)
 
             # Perform similarity search on vectorstore
             docs = vector_store.similarity_search(user_question)
 
             # Get the response
-            response = qa_chain({"input_documents": docs, "question": user_question}, return_only_outputs=True)
+            response = qa_chain({"question": user_question}, return_only_outputs=True)
 
             # Display the answer
             st.markdown("### Answer:")
-            st.write(response["output_text"])
+            st.write(response["answer"])
 
             # --- Display source chunk(s) that contributed to answer ---
             st.markdown("#### Source Reference")
@@ -122,7 +128,7 @@ def main():
                 st.warning("No source reference found for this answer.")
             
             #save chat
-            save_chat_history(user_question, response["output_text"])
+            save_chat_history(user_question, response["answer"])
             # Display past chat history (optional)
             st.markdown("---")
             st.markdown("### Your Chat History")
@@ -132,12 +138,13 @@ def main():
                     f"<p style='font-size:0.92em;'><b>Q:</b> {entry['question']}<br><b>A:</b> {entry['answer']}</p><hr>", 
                     unsafe_allow_html=True
                 )
-        summary_text = st.session_state.get('document_summary', None)
-        if summary_text:
-            st.markdown("### Document Summary")
-            st.write(summary_text)
+
     else:
         st.warning("Please upload and process PDFs first.")
+    summary_text = st.session_state.get('document_summary', None)
+    if summary_text:
+        st.markdown("### Document Summary")
+        st.write(summary_text)
     # Footer
     st.markdown(
         """
